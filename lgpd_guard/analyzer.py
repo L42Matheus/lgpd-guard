@@ -40,13 +40,11 @@ def get_llm(provider: str = "anthropic"):
 
 def get_embeddings(provider: str = "anthropic"):
     """Retorna embeddings conforme provider."""
-    # Ambos os providers usam OpenAI embeddings por padrão (mais econômico)
-    # Se quiser usar apenas Anthropic, pode usar HuggingFace embeddings
-    from langchain_openai import OpenAIEmbeddings
-    if os.environ.get("OPENAI_API_KEY"):
+    if provider == "openai" and os.environ.get("OPENAI_API_KEY"):
+        from langchain_openai import OpenAIEmbeddings
         return OpenAIEmbeddings(openai_api_key=os.environ["OPENAI_API_KEY"])
     else:
-        # Fallback: embeddings locais via HuggingFace (sem custo)
+        # Usa embeddings locais via HuggingFace (sem custo de API)
         from langchain_community.embeddings import HuggingFaceEmbeddings
         return HuggingFaceEmbeddings(model_name="sentence-transformers/all-MiniLM-L6-v2")
 
