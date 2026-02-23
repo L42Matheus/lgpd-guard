@@ -21,7 +21,7 @@ def get_llm(provider: str = "anthropic"):
     if provider == "anthropic":
         from langchain_anthropic import ChatAnthropic
         return ChatAnthropic(
-            model="claude-3-5-sonnet-20241022",
+            model="claude-sonnet-4-6",
             anthropic_api_key=os.environ["ANTHROPIC_API_KEY"],
             max_tokens=2048,
             temperature=0
