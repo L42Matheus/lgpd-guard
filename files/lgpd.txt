@@ -1,0 +1,88 @@
+LEI GERAL DE PROTEÇÃO DE DADOS PESSOAIS (LGPD) - Lei nº 13.709/2018
+Principais artigos relevantes para auditoria de código-fonte
+
+=== ART. 6 - PRINCÍPIOS ===
+O tratamento de dados pessoais deve observar:
+I - finalidade: realização do tratamento para propósitos legítimos, específicos, explícitos e informados ao titular;
+II - adequação: compatibilidade do tratamento com as finalidades informadas ao titular;
+III - necessidade: limitação do tratamento ao mínimo necessário para a realização de suas finalidades (minimização de dados);
+IV - livre acesso: garantia aos titulares de consulta facilitada sobre a forma e duração do tratamento;
+V - qualidade dos dados: exatidão, clareza, relevância e atualização dos dados;
+VI - transparência: informações claras, precisas e facilmente acessíveis sobre o tratamento;
+VII - segurança: utilização de medidas técnicas e administrativas aptas a proteger os dados pessoais;
+VIII - prevenção: adoção de medidas para prevenir a ocorrência de danos;
+IX - não discriminação: impossibilidade de realizar o tratamento para fins discriminatórios;
+X - responsabilização e prestação de contas.
+
+=== ART. 7 - BASES LEGAIS ===
+O tratamento de dados pessoais somente poderá ser realizado nas seguintes hipóteses:
+I - mediante o fornecimento de consentimento pelo titular;
+II - para o cumprimento de obrigação legal ou regulatória pelo controlador;
+III - pela administração pública para execução de políticas públicas;
+IV - para a realização de estudos por órgão de pesquisa;
+V - quando necessário para a execução de contrato;
+VI - para o exercício regular de direitos em processo judicial, administrativo ou arbitral;
+VII - para a proteção da vida ou da incolumidade física do titular;
+VIII - para a tutela da saúde;
+IX - quando necessário para atender aos interesses legítimos do controlador ou de terceiro;
+X - para a proteção do crédito.
+VIOLAÇÃO: Tratar dados pessoais sem uma dessas bases legais identificável no código é uma violação do Art. 7.
+
+=== ART. 15 - TÉRMINO DO TRATAMENTO ===
+O término do tratamento de dados pessoais ocorrerá nas seguintes hipóteses:
+I - verificação de que a finalidade foi alcançada ou que os dados deixaram de ser necessários;
+II - fim do período de tratamento;
+III - comunicação do titular, inclusive no exercício de seu direito de revogação do consentimento;
+IV - determinação da autoridade nacional.
+VIOLAÇÃO: Dados pessoais armazenados sem política de retenção (TTL) ou sem mecanismo de exclusão violam o Art. 15.
+
+=== ART. 18 - DIREITOS DO TITULAR ===
+O titular dos dados pessoais tem direito a:
+I - confirmação da existência de tratamento;
+II - acesso aos dados;
+III - correção de dados incompletos, inexatos ou desatualizados;
+IV - anonimização, bloqueio ou eliminação de dados desnecessários;
+V - portabilidade dos dados;
+VI - eliminação dos dados pessoais tratados com o consentimento do titular;
+VII - informação sobre o compartilhamento de dados;
+VIII - informação sobre a possibilidade de não fornecer consentimento;
+IX - revogação do consentimento.
+VIOLAÇÃO: APIs que não implementam endpoints para acesso, correção ou exclusão de dados pessoais violam o Art. 18.
+
+=== ART. 20 - DECISÕES AUTOMATIZADAS ===
+O titular dos dados tem direito a solicitar revisão de decisões tomadas unicamente com base em tratamento automatizado de dados pessoais que afetem seus interesses.
+VIOLAÇÃO: Sistemas de decisão automatizada sem possibilidade de revisão humana violam o Art. 20.
+
+=== ART. 37 - REGISTRO DE OPERAÇÕES ===
+O controlador e o operador devem manter registro das operações de tratamento de dados pessoais que realizarem, especialmente quando baseado no legítimo interesse.
+VIOLAÇÃO: Código que trata dados pessoais sem logging de auditoria (quem acessou, quando, para qual finalidade) viola o Art. 37.
+
+=== ART. 46 - SEGURANÇA ===
+Os agentes de tratamento devem adotar medidas de segurança, técnicas e administrativas aptas a proteger os dados pessoais de acessos não autorizados e de situações acidentais ou ilícitas de destruição, perda, alteração, comunicação ou qualquer forma de tratamento inadequado ou ilícito.
+VIOLAÇÃO: Dados pessoais em logs sem mascaramento violam o Art. 46.
+VIOLAÇÃO: Senhas armazenadas em texto puro violam o Art. 46.
+VIOLAÇÃO: CPF, RG, e-mail, telefone transmitidos sem criptografia (HTTP) violam o Art. 46.
+VIOLAÇÃO: Dados pessoais em variáveis de ambiente ou hardcoded no código violam o Art. 46.
+VIOLAÇÃO: Stack traces com dados pessoais expostos em logs violam o Art. 46.
+
+=== ART. 48 - INCIDENTES DE SEGURANÇA ===
+O controlador deverá comunicar à autoridade nacional e ao titular a ocorrência de incidente de segurança que possa acarretar risco ou dano relevante aos titulares.
+VIOLAÇÃO: Ausência de mecanismo de detecção e notificação de incidentes em sistemas que tratam dados pessoais sensíveis viola o espírito do Art. 48.
+
+=== DADOS PESSOAIS SENSÍVEIS (ART. 11) ===
+Dados pessoais sensíveis recebem proteção especial:
+- Origem racial ou étnica
+- Convicção religiosa
+- Opinião política
+- Filiação a sindicato ou organização religiosa, filosófica ou política
+- Dado referente à saúde ou à vida sexual
+- Dado genético ou biométrico
+
+=== PADRÕES DE DADOS PESSOAIS NO CÓDIGO ===
+Os seguintes padrões em código indicam tratamento de dados pessoais:
+- Variáveis/atributos: cpf, rg, cnpj, nome, email, telefone, celular, endereco, cep, nascimento, senha, password, token, biometria, cartao, credito
+- Campos de banco: usuario_cpf, user_email, client_phone, customer_name
+- APIs: /usuarios, /clientes, /pessoas, /perfil, /profile, /user, /customer
+- Logs contendo: cpf, email, nome, telefone
+- Entidades JPA/Hibernate com dados pessoais
+- DTOs/POJOs com campos de identificação pessoal

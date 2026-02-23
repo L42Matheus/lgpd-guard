@@ -1,0 +1,98 @@
+name: LGPD Guard — Compliance Check
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  pull-requests: write
+  contents: read
+
+jobs:
+  lgpd-check:
+    name: Verificação de Conformidade LGPD
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout código
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Necessário para acessar o histórico do diff
+
+      - name: Configura Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Instala dependências
+        run: |
+          cd lgpd_guard
+          pip install -r ../requirements.txt
+
+      - name: Gera diff do PR
+        run: |
+          git diff origin/${{ github.base_ref }}...HEAD > /tmp/pr_diff.txt
+          echo "Linhas no diff: $(wc -l < /tmp/pr_diff.txt)"
+
+      - name: Executa análise estática (rápida, sem LLM)
+        id: static_analysis
+        run: |
+          cd lgpd_guard
+          python main.py \
+            --diff /tmp/pr_diff.txt \
+            --no-llm \
+            --output json > /tmp/static_result.json
+          echo "exit_code=$?" >> $GITHUB_OUTPUT
+        continue-on-error: true
+
+      - name: Executa análise semântica (LLM + RAG)
+        id: llm_analysis
+        if: ${{ vars.LGPD_LLM_ENABLED == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          cd lgpd_guard
+          python main.py \
+            --diff /tmp/pr_diff.txt \
+            --provider anthropic \
+            --post-comment \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --output text
+        continue-on-error: true
+
+      - name: Posta resultado da análise estática (se LLM desabilitado)
+        if: ${{ vars.LGPD_LLM_ENABLED != 'true' }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          cd lgpd_guard
+          python main.py \
+            --diff /tmp/pr_diff.txt \
+            --no-llm \
+            --post-comment \
+            --pr-number ${{ github.event.pull_request.number }} \
+            --output text
+
+      - name: Verifica resultado e define status do pipeline
+        run: |
+          VIOLATIONS=$(cat /tmp/static_result.json | python3 -c "
+          import json, sys
+          data = json.load(sys.stdin)
+          criticals = [v for v in data['violations'] if v['severidade'] in ('CRÍTICA', 'ALTA')]
+          print(len(criticals))
+          " 2>/dev/null || echo "0")
+
+          echo "Violações críticas/altas: $VIOLATIONS"
+
+          if [ "$VIOLATIONS" -gt "0" ]; then
+            echo "❌ LGPD Guard: $VIOLATIONS violação(ões) crítica(s)/alta(s) encontrada(s)."
+            echo "   O merge está bloqueado até que as violações sejam corrigidas."
+            exit 1
+          else
+            echo "✅ LGPD Guard: Nenhuma violação crítica encontrada."
+          fi
