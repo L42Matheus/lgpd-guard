@@ -78,6 +78,23 @@ jobs:
           python main.py \
             --diff /tmp/pr_diff.txt \
             --provider anthropic \
+            --output json > /tmp/llm_result.json
+          EXIT_CODE=$?
+          set -e
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+      - name: Posta resultado da análise semântica (comentário no PR)
+        if: ${{ vars.LGPD_LLM_ENABLED == 'true' }}
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: |
+          cd lgpd_guard
+          set +e
+          python main.py \
+            --diff /tmp/pr_diff.txt \
+            --provider anthropic \
             --post-comment \
             --pr-number ${{ github.event.pull_request.number }} \
             --output text
@@ -99,17 +116,32 @@ jobs:
 
       - name: Verifica resultado e define status do pipeline
         run: |
-          VIOLATIONS=$(cat /tmp/static_result.json | python3 -c "
+          STATIC=$(cat /tmp/static_result.json | python3 -c "
           import json, sys
           data = json.load(sys.stdin)
-          criticals = [v for v in data['violations'] if v['severidade'] in ('CRÍTICA', 'ALTA')]
+          criticals = [v for v in data.get('violations', []) if v.get('severidade') in ('CRÍTICA', 'ALTA')]
           print(len(criticals))
           " 2>/dev/null || echo "0")
 
-          echo "Violações críticas/altas: $VIOLATIONS"
+          LLM=0
+          if [ -f /tmp/llm_result.json ]; then
+            LLM=$(cat /tmp/llm_result.json | python3 -c "
+            import json, sys
+            data = json.load(sys.stdin)
+            viols = data.get('llm_violations', [])
+            criticals = [v for v in viols if isinstance(v, dict) and v.get('severidade') in ('CRÍTICA', 'ALTA')]
+            print(len(criticals))
+            " 2>/dev/null || echo "0")
+          fi
 
-          if [ "$VIOLATIONS" -gt "0" ]; then
-            echo "❌ LGPD Guard: $VIOLATIONS violação(ões) crítica(s)/alta(s) encontrada(s)."
+          echo "Violações ALTA/CRÍTICA (estática): $STATIC"
+          echo "Violações ALTA/CRÍTICA (LLM): $LLM"
+
+          TOTAL=$((STATIC + LLM))
+          echo "TOTAL: $TOTAL"
+
+          if [ "$TOTAL" -gt "0" ]; then
+            echo "❌ LGPD Guard: $TOTAL violação(ões) crítica(s)/alta(s) encontrada(s)."
             echo "   O merge está bloqueado até que as violações sejam corrigidas."
             exit 1
           else

@@ -11,6 +11,7 @@ Uso:
 import argparse
 import json
 import os
+import re
 import sys
 import subprocess
 
@@ -56,6 +57,38 @@ def post_github_comment(comment: str, pr_number: int, repo: str, token: str):
             print("✅ Comentário postado no PR com sucesso.")
         else:
             print(f"⚠️  Falha ao postar comentário: {response.status}")
+
+
+def _extract_llm_violations(llm_analysis: str | None) -> list:
+    """Extrai violações estruturadas do texto retornado pelo LLM.
+
+    O prompt pede JSON, mas alguns modelos podem responder com markdown/fences.
+    """
+    if not llm_analysis:
+        return []
+
+    candidates = [llm_analysis.strip()]
+    candidates.extend(
+        re.findall(r"```(?:json)?\s*(.*?)\s*```", llm_analysis, flags=re.IGNORECASE | re.DOTALL)
+    )
+
+    start = llm_analysis.find("{")
+    end = llm_analysis.rfind("}")
+    if start != -1 and end != -1 and end > start:
+        candidates.append(llm_analysis[start:end + 1])
+
+    for candidate in candidates:
+        try:
+            parsed = json.loads(candidate)
+        except Exception:
+            continue
+
+        if isinstance(parsed, dict):
+            violations = parsed.get("violacoes") or parsed.get("violations") or []
+            if isinstance(violations, list):
+                return violations
+
+    return []
 
 
 def main():
@@ -119,6 +152,7 @@ def main():
 
     # ── 5. Output ─────────────────────────────────────────────────────
     if args.output == "json":
+        llm_violations = _extract_llm_violations(llm_analysis)
         output = {
             "violations": [
                 {
@@ -132,6 +166,8 @@ def main():
                 }
                 for v in violations
             ],
+            "llm_violations": llm_violations,
+            "llm_analysis_raw": llm_analysis,
             "personal_data_count": len(personal_data),
             "should_fail": should_fail_pipeline(violations),
         }
