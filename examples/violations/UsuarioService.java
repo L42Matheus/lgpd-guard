@@ -46,3 +46,6 @@ public class UsuarioService {
                       senhaHash, usuario.getId());
     }
 }
+
+// teste LLM
+// log.info("CPF: " + usuario.getCpf());
