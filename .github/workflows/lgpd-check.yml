@@ -39,11 +39,14 @@ jobs:
         id: static_analysis
         run: |
           cd lgpd_guard
+          set +e
           python main.py \
             --diff /tmp/pr_diff.txt \
             --no-llm \
-            --output json > /tmp/static_result.json || true
-          echo "exit_code=$?" >> $GITHUB_OUTPUT
+            --output json > /tmp/static_result.json
+          EXIT_CODE=$?
+          set -e
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
 
       - name: Executa análise semântica (LLM + RAG)
         id: llm_analysis
@@ -54,12 +57,14 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
           cd lgpd_guard
+          set +e
           python main.py \
             --diff /tmp/pr_diff.txt \
             --provider anthropic \
             --post-comment \
             --pr-number ${{ github.event.pull_request.number }} \
-            --output text || true
+            --output text
+          set -e
 
       - name: Posta resultado da análise estática (se LLM desabilitado)
         if: ${{ vars.LGPD_LLM_ENABLED != 'true' }}
