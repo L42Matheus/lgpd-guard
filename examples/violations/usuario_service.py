@@ -37,3 +37,6 @@ class UsuarioService:
         return self.db.execute(
             "SELECT * FROM usuarios WHERE cpf = ?", (cpf,)
         )
+
+# teste
+logger.info(f'CPF do usuario: {usuario["cpf"]}')
