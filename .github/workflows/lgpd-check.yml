@@ -42,16 +42,14 @@ jobs:
           python main.py \
             --diff /tmp/pr_diff.txt \
             --no-llm \
-            --output json > /tmp/static_result.json
+            --output json > /tmp/static_result.json || true
           echo "exit_code=$?" >> $GITHUB_OUTPUT
-        continue-on-error: true
 
       - name: Executa análise semântica (LLM + RAG)
         id: llm_analysis
         if: ${{ vars.LGPD_LLM_ENABLED == 'true' }}
         env:
           ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
-          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: |
@@ -61,8 +59,7 @@ jobs:
             --provider anthropic \
             --post-comment \
             --pr-number ${{ github.event.pull_request.number }} \
-            --output text
-        continue-on-error: true
+            --output text || true
 
       - name: Posta resultado da análise estática (se LLM desabilitado)
         if: ${{ vars.LGPD_LLM_ENABLED != 'true' }}
