@@ -1,211 +1,241 @@
 # LGPD Guard
 
-Auditoria continua de conformidade LGPD em diffs de Pull Requests, com integracao nativa em GitHub Actions.
+Ferramenta de auditoria contínua de conformidade com a LGPD integrada a pipelines CI/CD via GitHub Actions. Analisa diffs de Pull Requests, detecta padrões de dados pessoais e violações regulatórias, e bloqueia merges em casos críticos.
 
-Arquitetura:
-- Scanner estatico (regex/regras)
-- Analise semantica com LLM + RAG (opcional)
-- Comentario automatico no PR
-- Bloqueio de merge para severidade `ALTA` ou `CRITICA`
+Funciona com **qualquer repositório** — basta extrair o diff e apontar para a ferramenta.
 
-## 1. Objetivo do projeto
+---
 
-O LGPD Guard foi projetado para o fluxo de CI/CD descrito no artigo:
-- analisar diffs de PR
-- mapear evidencias tecnicas para artigos da LGPD
-- gerar relatorio acionavel no PR
-- bloquear merge quando houver risco relevante
+## Como funciona
 
-## 2. Fluxo oficial no GitHub Actions (principal)
+1. Extrai o diff do Pull Request (ou de qualquer commit)
+2. Detector estático identifica padrões de dados pessoais via regex
+3. Camada LLM+RAG analisa semanticamente com base nos artigos da LGPD
+4. Relatório é publicado como comentário no PR e o merge é bloqueado se houver violações Alta/Crítica
 
-Workflow: [.github/workflows/lgpd-check.yml](C:\Users\DeLL\Videos\lgpd-guard\.github\workflows\lgpd-check.yml)
+---
 
-Fluxo executado a cada `pull_request`:
-1. Faz checkout com historico (`fetch-depth: 0`).
-2. Gera diff do PR (`git diff origin/<base>...HEAD`).
-3. Executa analise estatica (sempre).
-4. Executa analise LLM + RAG (se `LGPD_LLM_ENABLED=true`).
-5. Publica comentario no PR.
-6. Soma violacoes `ALTA/CRITICA` da camada estatica e LLM.
-7. Falha o job se total > 0 (merge bloqueado).
+## Setup local
 
-## 3. Como habilitar no seu repositorio
+### 1. Clone e ambiente
 
-1. Copie o workflow:
 ```powershell
-mkdir .github\workflows -Force
-copy .\lgpd-check.yml .\.github\workflows\lgpd-check.yml
-```
-
-2. Configure Secrets (Settings -> Secrets and variables -> Actions):
-- `ANTHROPIC_API_KEY` (obrigatorio se usar provider anthropic)
-- `OPENAI_API_KEY` (opcional, se usar provider openai)
-
-3. Configure Variables (Settings -> Secrets and variables -> Actions):
-- `LGPD_LLM_ENABLED=true` para ativar LLM no CI
-
-4. Abra um Pull Request para disparar o pipeline.
-
-## 4. Setup local (suporte e reproducao)
-
-1. Clone e ambiente:
-```powershell
-git clone <repo>
+git clone https://github.com/L42Matheus/lgpd-guard
 cd lgpd-guard
 python -m venv .venv
 .\.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-2. Configure `.env`:
+Se houver erro no `faiss-cpu`:
+
+```powershell
+pip install faiss-cpu --prefer-binary
+```
+
+### 2. Configure o `.env`
+
 ```powershell
 copy .env.example .env
 ```
 
-Exemplo:
-```env
+Edite o `.env` e preencha a chave da Anthropic:
+
+```
 ANTHROPIC_API_KEY=sk-ant-...
-OPENAI_API_KEY=
-GITHUB_TOKEN=
-GITHUB_REPOSITORY=
-GITHUB_SERVER_URL=https://github.com
-PR_NUMBER=
 ```
 
-Observacao: `main.py` carrega `.env` automaticamente.
+> As demais variáveis do `.env.example` são preenchidas automaticamente pelo GitHub Actions no CI/CD — não são necessárias para execução local.
 
-## 5. Execucao local (com e sem LLM)
+> `main.py` carrega o `.env` automaticamente.
 
-Com LLM (Anthropic):
+---
+
+## Execução local
+
+### Com LLM (Anthropic — recomendado)
+
 ```powershell
-python lgpd_guard\main.py --diff .\diffs\sigpae_1e42fbb5a.txt --provider anthropic --output json
+python lgpd_guard\main.py `
+  --diff .\diffs\<nome>.txt `
+  --provider anthropic `
+  --output json
 ```
 
-Sem LLM:
+### Ver raciocínio jurídico completo do LLM
+
 ```powershell
-python lgpd_guard\main.py --diff .\diffs\sigpae_1e42fbb5a.txt --no-llm --output json
+python lgpd_guard\main.py `
+  --diff .\diffs\<nome>.txt `
+  --provider anthropic `
+  --output json `
+  --include-llm-raw
 ```
 
-Incluir resposta bruta do LLM:
+### Sem LLM (apenas detector estático — reprodutível sem API key)
+
 ```powershell
-python lgpd_guard\main.py --diff .\diffs\sigpae_1e42fbb5a.txt --provider anthropic --output json --include-llm-raw
+python lgpd_guard\main.py `
+  --diff .\diffs\<nome>.txt `
+  --no-llm `
+  --output json
 ```
 
-Comparacao lado a lado:
+### Comparação lado a lado
+
 ```powershell
-python lgpd_guard\main.py --diff .\diffs\sigpae_1e42fbb5a.txt --provider anthropic --output json > com_llm.json
-python lgpd_guard\main.py --diff .\diffs\sigpae_1e42fbb5a.txt --no-llm --output json > sem_llm.json
+python lgpd_guard\main.py --diff .\diffs\<nome>.txt --provider anthropic --output json > com_llm.json
+python lgpd_guard\main.py --diff .\diffs\<nome>.txt --no-llm --output json > sem_llm.json
 ```
 
-## 6. Reproducao da avaliacao do artigo
+---
 
-### 6.1 Estrutura esperada
+## Analisando qualquer repositório
 
-```text
+O LGPD Guard funciona com qualquer repositório Git. O fluxo completo:
+
+### 1. Clone o repositório alvo lado a lado com o lgpd-guard
+
+```
 <pasta-pai>/
-|-- lgpd-guard/
-|-- SME-SIGPAE-API/
-`-- Sistema_Programa_de_Gestao_Susep/
+├── lgpd-guard/
+└── meu-projeto/
 ```
 
-### 6.2 Buscar commits com dados pessoais (pickaxe)
-
-Dentro de cada repositorio alvo:
 ```powershell
+cd <pasta-pai>
+git clone https://github.com/<org>/<repositorio>
+```
+
+### 2. Buscar commits com dados pessoais (Git Pickaxe)
+
+Dentro do repositório alvo:
+
+```powershell
+cd <repositorio>
+
+# Buscar commits que adicionaram/removeram referências a CPF
 git log --all -S "cpf" --oneline
+
+# Outros termos úteis
+git log --all -S "email" --oneline
+git log --all -S "senha" --oneline
+git log --all -S "telefone" --oneline
 ```
 
-Inspecionar commit:
+### 3. Inspecionar o commit
+
 ```powershell
-git show <hash>
 git show <hash> --stat
+git show <hash>
 ```
 
-### 6.3 Extrair diffs para o LGPD Guard
+### 4. Extrair o diff
 
-Diff completo:
 ```powershell
-git show <hash> | Out-File -FilePath ..\lgpd-guard\diffs\<nome>.txt -Encoding utf8
+# Diff completo
+git show <hash> | Out-File `
+  -FilePath ..\lgpd-guard\diffs\<nome>.txt `
+  -Encoding utf8
+
+# Se houver ruído de bundles/minificados, filtrar para src/
+git show <hash> -- src/ | Out-File `
+  -FilePath ..\lgpd-guard\diffs\<nome>_src.txt `
+  -Encoding utf8
 ```
 
-Quando houver ruido de bundles/minificados, filtrar para `src/`:
-```powershell
-git show <hash> -- src/ | Out-File -FilePath ..\lgpd-guard\diffs\<nome>_src.txt -Encoding utf8
-```
-
-### 6.4 Executar analise
+### 5. Executar a análise
 
 ```powershell
 cd ..\lgpd-guard
-python lgpd_guard\main.py --diff .\diffs\<nome>.txt --no-llm --output json
+
+python lgpd_guard\main.py `
+  --diff .\diffs\<nome>.txt `
+  --provider anthropic `
+  --output json
 ```
 
-## 7. Regra de decisao e bloqueio
+---
 
-Campos relevantes no JSON:
-- `violations`: violacoes estaticas
-- `llm_violations`: violacoes estruturadas do LLM
-- `personal_data_count`: linhas com indicio de dado pessoal
-- `should_fail`: bloqueio segundo camada estatica
+## Campos do resultado JSON
 
-No GitHub Actions, o bloqueio final considera:
-- total de `ALTA/CRITICA` da analise estatica
-- + total de `ALTA/CRITICA` da analise LLM (quando habilitada)
+| Campo | Descrição |
+|-------|-----------|
+| `violations` | Violações detectadas pelo módulo estático |
+| `llm_violations` | Violações adicionais identificadas pelo LLM |
+| `personal_data_count` | Linhas com indício de dado pessoal |
+| `should_fail` | `true` = merge deve ser bloqueado |
+| `llm_analysis_raw` | Raciocínio jurídico completo do LLM (com `--include-llm-raw`) |
 
-Se total > 0, o job falha e o merge fica bloqueado.
+**Regra de bloqueio:** se houver pelo menos 1 violação de severidade `ALTA` ou `CRÍTICA` (estática ou LLM), o pipeline falha e o merge fica bloqueado.
 
-## 8. Troubleshooting
+---
 
-### 8.1 Falha de chave LLM
+## Integração CI/CD (GitHub Actions)
 
-Mensagem:
-```text
+Adicione ao seu repositório em `.github/workflows/lgpd-check.yml`:
+
+```yaml
+name: LGPD Guard
+on:
+  pull_request:
+    types: [opened, synchronize]
+
+jobs:
+  lgpd-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: L42Matheus/lgpd-guard@main
+        with:
+          anthropic-api-key: ${{ secrets.ANTHROPIC_API_KEY }}
+```
+
+Configure o secret `ANTHROPIC_API_KEY` em **Settings → Secrets → Actions** do seu repositório.
+
+---
+
+## Troubleshooting
+
+**Falha de chave LLM**
+```
 Analise LLM falhou: 'ANTHROPIC_API_KEY'
 ```
+1. Verifique se `.env` existe na raiz
+2. Verifique se `ANTHROPIC_API_KEY=...` está preenchido
+3. Alternativa: rode com `--no-llm`
 
-Checklist:
-1. Verifique se `.env` existe na raiz.
-2. Verifique se `ANTHROPIC_API_KEY=...` esta preenchido.
-3. Se necessario, rode com `--no-llm`.
+---
 
-### 8.2 Aviso de deprecacao do LangChain
-
-Mensagem:
-```text
+**Aviso de deprecação do LangChain**
+```
 LangChainDeprecationWarning: HuggingFaceEmbeddings was deprecated...
 ```
+Não interrompe a execução. Migração para `langchain_huggingface` planejada em versão futura.
 
-Status:
-- nao interrompe execucao agora
-- requer migracao futura para `langchain_huggingface`
+---
 
-### 8.3 Pipeline falhando por LGPD
-
-Mensagem:
-```text
+**Pipeline bloqueado por LGPD**
+```
 Pipeline falhando devido a violacoes criticas/altas de LGPD.
 ```
+Causa comum: `log` ou `print` com CPF, e-mail, nome ou telefone sem mascaramento. Veja o campo `violations` no JSON para localizar arquivo e linha.
 
-Causa comum:
-- log/print com CPF, email, nome ou telefone sem mascaramento
+---
 
-No caso `sigpae_1e42fbb5a.txt`, as ocorrencias reportadas foram em:
-- `report_parceiras.py:102`
-- `report_parceiras.py:142`
+## Estrutura do projeto
 
-## 9. Estrutura do projeto
-
-```text
+```
 lgpd-guard/
-|-- .github/workflows/lgpd-check.yml
-|-- lgpd_guard/main.py
-|-- lgpd_guard/detector.py
-|-- lgpd_guard/analyzer.py
-|-- lgpd_guard/reporter.py
-|-- lgpd_guard/knowledge/lgpd.txt
-|-- diffs/
-|-- examples/
-|-- requirements.txt
-|-- .env.example
-`-- README.md
+├── .github/workflows/lgpd-check.yml
+├── lgpd_guard/
+│   ├── main.py
+│   ├── detector.py
+│   ├── analyzer.py
+│   ├── reporter.py
+│   └── knowledge/lgpd.txt
+├── diffs/
+├── examples/
+├── requirements.txt
+├── .env.example
+└── README.md
 ```
