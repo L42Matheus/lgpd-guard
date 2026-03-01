@@ -39,7 +39,13 @@ pip install faiss-cpu --prefer-binary
 copy .env.example .env
 ```
 
-Edite o `.env` e preencha a chave da Anthropic:
+Abra o `.env` e preencha a chave da Anthropic:
+
+```powershell
+notepad .env
+```
+
+Adicione sua chave e salve:
 
 ```
 ANTHROPIC_API_KEY=sk-ant-...
@@ -94,17 +100,27 @@ python lgpd_guard\main.py --diff .\diffs\<nome>.txt --no-llm --output json > sem
 
 O repositório já inclui arquivos de exemplo em `examples/violations/` com violações LGPD anotadas — ideal para testar sem depender de nenhum repositório externo.
 
-### 1. Gerar o diff a partir dos exemplos
+### 1. Configurar a API Key (se ainda não fez)
 
 ```powershell
-# Cria arquivo vazio como base para o diff
-echo $null | Out-File -FilePath .\diffs\vazio.txt -Encoding utf8
+copy .env.example .env
+notepad .env
+```
 
+> Preencha `ANTHROPIC_API_KEY=sk-ant-...` e salve.
+
+### 2. Gerar o diff a partir dos exemplos
+
+O `git diff --no-index` pode gerar formato inválido no Windows. Use o script abaixo que garante o formato correto:
+
+```powershell
 # Gera diff do exemplo Java
-git diff --no-index .\diffs\vazio.txt examples\violations\UsuarioService.java | Out-File -FilePath .\diffs\exemplo_java.txt -Encoding utf8
+"diff --git a/UsuarioService.java b/UsuarioService.java`n+++ b/UsuarioService.java" | Out-File .\diffs\exemplo_java.txt -Encoding utf8
+Get-Content examples\violations\UsuarioService.java | ForEach-Object { "+$_" } | Add-Content .\diffs\exemplo_java.txt -Encoding utf8
 
 # Gera diff do exemplo Python
-git diff --no-index .\diffs\vazio.txt examples\violations\usuario_service.py | Out-File -FilePath .\diffs\exemplo_python.txt -Encoding utf8
+"diff --git a/usuario_service.py b/usuario_service.py`n+++ b/usuario_service.py" | Out-File .\diffs\exemplo_python.txt -Encoding utf8
+Get-Content examples\violations\usuario_service.py | ForEach-Object { "+$_" } | Add-Content .\diffs\exemplo_python.txt -Encoding utf8
 ```
 
 ### 2. Executar a análise
