@@ -90,6 +90,37 @@ python lgpd_guard\main.py --diff .\diffs\<nome>.txt --no-llm --output json > sem
 
 ---
 
+## Testando com os exemplos incluídos
+
+O repositório já inclui arquivos de exemplo em `examples/violations/` com violações LGPD anotadas — ideal para testar sem depender de nenhum repositório externo.
+
+### 1. Gerar o diff a partir dos exemplos
+
+```powershell
+# Cria arquivo vazio como base para o diff
+echo $null | Out-File -FilePath .\diffs\vazio.txt -Encoding utf8
+
+# Gera diff do exemplo Java
+git diff --no-index .\diffs\vazio.txt examples\violations\UsuarioService.java | Out-File -FilePath .\diffs\exemplo_java.txt -Encoding utf8
+
+# Gera diff do exemplo Python
+git diff --no-index .\diffs\vazio.txt examples\violations\usuario_service.py | Out-File -FilePath .\diffs\exemplo_python.txt -Encoding utf8
+```
+
+### 2. Executar a análise
+
+```powershell
+# Sem LLM
+python lgpd_guard\main.py --diff .\diffs\exemplo_java.txt --no-llm --output json
+
+# Com LLM
+python lgpd_guard\main.py --diff .\diffs\exemplo_java.txt --provider anthropic --output json
+```
+
+> Os exemplos contêm violações conhecidas dos Arts. 6º e 46 da LGPD (CPF em log, senha em texto puro, SQL injection com dado pessoal, comunicação sem HTTPS) — útil para validar que a ferramenta está funcionando corretamente antes de apontar para repositórios reais.
+
+---
+
 ## Analisando qualquer repositório
 
 O LGPD Guard funciona com qualquer repositório Git. O fluxo completo:
